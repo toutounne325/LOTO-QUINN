@@ -1,0 +1,50 @@
+# ============================================================================
+# Protection légale pour le trading, propriété exclusive de Pirate Pips ™.
+# AVERTISSEMENT LÉGAL (DISCLAIMER) : Ce logiciel est fourni à titre purement
+# informatif, éducatif et expérimental. Le trading et les opérations sur
+# instruments financiers ou jeux comportent un risque élevé de perte en capital.
+# Les performances passées ne préjugent pas des résultats futurs. Pirate Pips ™
+# décline toute responsabilité en cas de pertes financières directes ou indirectes.
+# ============================================================================
+name: Fabriquer APK Loto Quine
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Recuperer le code
+        uses: actions/checkout@v4
+
+      - name: 2. Installer Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 3. Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      - name: 4. Generer le projet Android, activer la Camera OCR et compiler l'APK
+        run: |
+          flutter create --platforms=android --org com.piratepips app_loto
+          cp main.dart app_loto/lib/main.dart
+          cd app_loto
+          sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA"\/>\n    <application/g' android/app/src/main/AndroidManifest.xml
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
+          flutter pub add shared_preferences:^2.2.3 image_picker:^1.0.8 google_mlkit_text_recognition:^0.13.0
+          flutter build apk --release --no-shrink
+
+      - name: 5. Rendre le fichier APK telechargeable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Application-Loto-Quine-Android
+          path: app_loto/build/app/outputs/flutter-apk/app-release.apk
