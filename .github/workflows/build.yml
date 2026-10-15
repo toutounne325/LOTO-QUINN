@@ -29,19 +29,31 @@ jobs:
       - name: 3. Installer Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
           channel: 'stable'
 
       - name: 4. Generer le projet Android, activer la Camera OCR et compiler l'APK
         run: |
           flutter create --platforms=android --org com.piratepips app_loto
-          cp main.dart app_loto/lib/main.dart
+          MAIN_FILE=$(find . -maxdepth 2 -name "main.dart" | head -n 1)
+          cp "$MAIN_FILE" app_loto/lib/main.dart
           cd app_loto
           sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA"\/>\n    <application/g' android/app/src/main/AndroidManifest.xml
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle
-          flutter pub add shared_preferences:^2.2.3 image_picker:^1.0.8 google_mlkit_text_recognition:^0.13.0
-          flutter build apk --release --no-shrink
+          cat << 'EOF' > android/app/proguard-rules.pro
+          -keep class com.google.mlkit.** { *; }
+          -dontwarn com.google.mlkit.**
+          -keep class com.google.android.gms.** { *; }
+          -dontwarn com.google.android.gms.**
+          EOF
+          if [ -f "android/app/build.gradle.kts" ]; then
+            sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/g' android/app/build.gradle.kts
+            sed -i 's/isShrinkResources = true/isShrinkResources = false/g' android/app/build.gradle.kts
+          fi
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i 's/minifyEnabled true/minifyEnabled false/g' android/app/build.gradle
+            sed -i 's/shrinkResources true/shrinkResources false/g' android/app/build.gradle
+          fi
+          flutter pub add shared_preferences image_picker google_mlkit_text_recognition
+          flutter build apk --release
 
       - name: 5. Rendre le fichier APK telechargeable
         uses: actions/upload-artifact@v4
